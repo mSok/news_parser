@@ -1,10 +1,10 @@
+# -*- coding: utf-8 -*-
 """Модуль для парсеринга новостей"""
-
-import argparse
 
 import requests
 import bs4
 from rules import SiteRules
+import db
 
 
 class ParseError(Exception):
@@ -16,6 +16,7 @@ class Parser:
     """Класс парсера ленты новостей"""
     def __init__(self, file_rule):
         self.rules = SiteRules(file_rule)
+        self.connect = db.connect_db()
 
     def parse_news_lenta(self):
         """Парсим ленту новостей"""
@@ -56,10 +57,9 @@ class Parser:
             content = bs_news_content.select_one(self.rules.content).text
         except (ValueError, AttributeError) as exc:
             print('Error parse url: {} exception {}'.format(full_url, str(exc)))
-            raise ParseError('Error parse url: {}'.format(full_url)) from exc
+            raise ParseError('Error parse url: {}'.format(full_url))
         self.put_content(header, content, full_url)
 
-    # TODO Необходимо реализовать
     def put_content(self, header, content, url):
         """Сложить контент в БД
 
@@ -68,16 +68,10 @@ class Parser:
             content(str): Контент
             url(str): ссылка на новость
         """
-        print(url)
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-r", "--rule", help="file with parse rules")
-    args = parser.parse_args()
-    if args.rule:
-        st = Parser(args.rule)
-        st.parse_news_lenta()
-        exit(0)
-    else:
-        print("Ошибка. Не передан параметр с правилами парсинга")
-        exit(1)
+        db.put_content(
+            self.connect,
+            url,
+            header,
+            content,
+            self.rules.source
+        )

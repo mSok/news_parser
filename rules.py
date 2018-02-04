@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Модуль для обработки правил"""
 import configparser
 
