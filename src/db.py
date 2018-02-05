@@ -3,6 +3,7 @@
 import logging
 
 import psycopg2
+from collections import ChainMap
 from psycopg2.extras import LoggingConnection
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
@@ -15,7 +16,7 @@ DEFAULT_DB_NAME = 'news'
 DEFAULT_DB_SETTINGS = {
     "user": "postgres",
     "password": "postgres",
-    "host": "postgresql",
+    "host": "127.0.0.1",
     "database": DEFAULT_DB_NAME,
 }
 
@@ -34,7 +35,7 @@ class DBError(Exception):
     pass
 
 
-def connect_db(conn_data=DEFAULT_DB_SETTINGS):
+def connect_db(conn_data={}):
     """Подключение к БД, если БД нет - создаст и смигрирует структуру.
 
     Args:
@@ -46,13 +47,14 @@ def connect_db(conn_data=DEFAULT_DB_SETTINGS):
     """
     conn = None
     _is_new = False
-    db_name = conn_data.get('database')
+    chain_conf = ChainMap(conn_data, DEFAULT_DB_SETTINGS)
+    db_name = chain_conf.get('database')
     try:
         conn = psycopg2.connect(
             database="postgres",
-            user=conn_data.get('user'),
-            password=conn_data.get('password'),
-            host=conn_data.get('host')
+            user=chain_conf.get('user'),
+            password=chain_conf.get('password'),
+            host=chain_conf.get('host')
         )
         conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
         cursor = conn.cursor()
@@ -64,7 +66,7 @@ def connect_db(conn_data=DEFAULT_DB_SETTINGS):
         conn.close()
     except psycopg2.DatabaseError as exc:
         raise DBConnectionError('Ошибка создания БД. {}'.format(str(exc)))
-    db_con = psycopg2.connect(connection_factory=LoggingConnection, **conn_data)
+    db_con = psycopg2.connect(connection_factory=LoggingConnection, **chain_conf)
     db_con.initialize(logger)
     if _is_new:
         migrate_db(db_con)

@@ -3,8 +3,10 @@
 
 import requests
 import bs4
-from rules import SiteRules
-import db
+from src import db
+from lxml import etree
+from src.rules import SiteRules
+
 
 
 class ParseError(Exception):
@@ -13,31 +15,26 @@ class ParseError(Exception):
 
 
 class Parser:
-    """Класс парсера ленты новостей"""
-    def __init__(self, file_rule):
+    """Базовый класс парсера ленты новостей"""
+    def __init__(self, file_rule, db_connect={}):
         self.rules = SiteRules(file_rule)
-        self.connect = db.connect_db()
+        self.is_rss = self.rules.rss
+        self.connect = db.connect_db(db_connect)
+
+    def _get_news(self, content):
+        raise NotImplementedError
 
     def parse_news_lenta(self):
         """Парсим ленту новостей"""
         for lenta in self.rules.lenta:
             lenta_content = requests.get(lenta)
             if lenta_content.status_code == 200:
-                for item_href in self._get_news(lenta_content.text):
+                if self.is_rss:
+                    _lst_news = self._get_news_rss(lenta_content.text)
+                else:
+                    _lst_news = self._get_news(lenta_content.text)
+                for item_href in _lst_news:
                     self.do_parse(item_href)
-
-    def _get_news(self, content):
-        """Получить ссылку на новость из ленты новостей
-        Args:
-            content(str): контент ленты новостей
-
-        Yields:
-            (str): ссылка на новость
-        """
-        bs_news = bs4.BeautifulSoup(content, "html.parser")
-        for _item in bs_news.select(self.rules.news_item):
-            href = _item.attrs.get('href')
-            yield href
 
     def do_parse(self, news_href):
         """Парсим новость по ссылке
@@ -75,3 +72,28 @@ class Parser:
             content,
             self.rules.source
         )
+
+    def _get_news_rss(self, content):
+        """Получить ссылку на новость из ленты новостей
+        Args:
+            content(str): контент ленты новостей
+
+        Yields:
+            (str): ссылка на новость
+        """
+        bs_news = etree.XML(content.encode('utf-8'))
+        for _item in bs_news.xpath(self.rules.news_item):
+            yield _item.text
+
+    def _get_news(self, content):
+        """Получить ссылку на новость из ленты новостей
+        Args:
+            content(str): контент ленты новостей
+
+        Yields:
+            (str): ссылка на новость
+        """
+        bs_news = bs4.BeautifulSoup(content, "html.parser")
+        for _item in bs_news.select(self.rules.news_item):
+            href = _item.attrs.get('href')
+            yield href

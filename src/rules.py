@@ -14,5 +14,6 @@ class SiteRules:
             self.news_item = cfg.get('main', 'news_item')
             self.content = cfg.get('main', 'content')
             self.header = cfg.get('main', 'header')
+            self.rss = cfg.getboolean('main', 'rss')
         except configparser.NoOptionError as exc:
             raise Exception("Incorrect rule file. Exception: {}".format(exc))

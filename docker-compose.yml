@@ -6,11 +6,12 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data/pgdata
     ports:
-        - "127.0.0.1:5432:5432"
+        - "127.0.0.1:5433:5432"
     container_name: news_db
   worker_ria:
     build: .
-    command: ["./wait-for-it.sh", "postgresql:5432", "--", "python3", "./runner.py", "-r", "ria.ini"]
+    # command: ["./wait-for-it.sh", "postgresql:5432", "--", "python3", "./runner.py", "-r", "ria.ini"]
+    command: ["python3", "./runner.py", "-r", "lenta-rss.ini", "-d true"]
     container_name: worker_ria
     volumes:
       - ./:/code
