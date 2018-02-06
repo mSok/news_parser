@@ -1,9 +1,24 @@
 # -*- coding: utf-8 -*-
-"""Модуль для работы с БД Postgres."""
+"""Модуль для работы с БД Postgres.
+
+# создаем подключение к локальной БД
+connect = db.connect_db({
+    'host':'127.0.0.1',
+    'port': '5433'
+    })
+# вставляем контент
+db.put_content(
+    connect,
+    'http://localhost/news1',
+    'Заголовок для новости о новости',
+    'Сама новость с очень важным контентом...',
+    0
+)
+"""
 import logging
+from collections import ChainMap
 
 import psycopg2
-from collections import ChainMap
 from psycopg2.extras import LoggingConnection
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
@@ -17,6 +32,7 @@ DEFAULT_DB_SETTINGS = {
     "user": "postgres",
     "password": "postgres",
     "host": "127.0.0.1",
+    "port": 5432,
     "database": DEFAULT_DB_NAME,
 }
 
@@ -40,6 +56,7 @@ def connect_db(conn_data={}):
 
     Args:
         conn_data(dict): данные для подключения к БД.
+            Переданные параметры переписывают значения по умолчанию.
     Raises:
         DBConnectionError: ошибки подключения.
     Returns:
@@ -54,7 +71,8 @@ def connect_db(conn_data={}):
             database="postgres",
             user=chain_conf.get('user'),
             password=chain_conf.get('password'),
-            host=chain_conf.get('host')
+            host=chain_conf.get('host'),
+            port=chain_conf.get('port'),
         )
         conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
         cursor = conn.cursor()
@@ -69,11 +87,11 @@ def connect_db(conn_data={}):
     db_con = psycopg2.connect(connection_factory=LoggingConnection, **chain_conf)
     db_con.initialize(logger)
     if _is_new:
-        migrate_db(db_con)
+        _migrate_db(db_con)
     return db_con
 
 
-def migrate_db(conn):
+def _migrate_db(conn):
     """Пересоздает структуру БД. (Внимание) дропает таблицу перед созданием.
 
     Raises:
@@ -90,6 +108,7 @@ def migrate_db(conn):
             id serial,
             url text NOT NULL,
             header text,
+            ts_header tsvector,
             content text,
             create_date timestamp with time zone  DEFAULT now(),
             source integer,
@@ -97,6 +116,9 @@ def migrate_db(conn):
             CONSTRAINT uniq_url UNIQUE (url)
         )
             WITH (OIDS = FALSE);
+        CREATE INDEX ind_search_title
+           ON public.news using gin(ts_header);
+        SET default_text_search_config = russian;
         """)
         conn.commit()
     except psycopg2.DatabaseError as exc:
@@ -115,23 +137,48 @@ def put_content(conn, url, header, content, source):
     try:
         cursor.execute(
             """
-            INSERT INTO news(url, header, content, source)
-            VALUES (%(url)s, %(header)s, %(content)s, %(source)s)
+            INSERT INTO news(url, header, ts_header, content, source)
+            VALUES (%(url)s, %(header)s,to_tsvector(%(header)s), %(content)s, %(source)s)
             ON CONFLICT (url)
             DO UPDATE
             SET
                 header = %(header)s,
                 content = %(content)s,
+                ts_header = to_tsvector(%(header)s),
                 source = %(source)s
             ;
             """,
             {
                 'url': url,
-                'header': header,
-                'content': content,
+                'header': header.strip(),
+                'content': content.strip(),
                 'source': source
             }
         )
     except psycopg2.DatabaseError as exc:
         raise DBError('Ошибка вставки контента {}'.format(str(exc)))
+    conn.commit()
+
+
+def get_content(conn, search_string):
+    """Поиск контента по заголовку новости
+    Args:
+        conn(psycopg2.connect): подключение к БД.
+        search_string: строка для поиска
+    Returns:
+        list of tuples: результат
+    """
+
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            """
+            SELECT *
+            FROM news
+            WHERE ts_header @@ to_tsquery('{}:* ');
+            """.format(search_string)
+        )
+        return cursor.fetchall()
+    except psycopg2.DatabaseError as exc:
+        raise DBError('Ошибка синтаксиса {}'.format(str(exc)))
     conn.commit()

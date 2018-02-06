@@ -3,8 +3,9 @@
 
 import requests
 import bs4
-from src import db
 from lxml import etree
+
+from src import db
 from src.rules import SiteRules
 
 
@@ -20,9 +21,6 @@ class Parser:
         self.rules = SiteRules(file_rule)
         self.is_rss = self.rules.rss
         self.connect = db.connect_db(db_connect)
-
-    def _get_news(self, content):
-        raise NotImplementedError
 
     def parse_news_lenta(self):
         """Парсим ленту новостей"""

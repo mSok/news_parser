@@ -10,8 +10,8 @@ services:
     container_name: news_db
   worker_ria:
     build: .
-    # command: ["./wait-for-it.sh", "postgresql:5432", "--", "python3", "./runner.py", "-r", "ria.ini"]
-    command: ["python3", "./runner.py", "-r", "lenta-rss.ini", "-d true"]
+    command: ["./wait-for-it.sh", "postgresql:5432", "--", "python3", "./runner.py", "-r", "ria.ini"]
+    # command: ["python3", "./runner.py", "-r", "lenta-rss.ini", "-H", "postgresql"]
     container_name: worker_ria
     volumes:
       - ./:/code
