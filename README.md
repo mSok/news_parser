@@ -35,7 +35,8 @@ rss = false
         `python3 runner.py -r ria.ini`
 
     Параметры запуска приложения runner.py
-    usage: runner.py [-h] [-r RULE] [-p PORT] [-H HOST] [-U USER] [-P PASSWORD] [-s SEARCH]
+    ```
+        usage: runner.py [-h] [-r RULE] [-p PORT] [-H HOST] [-U USER] [-P PASSWORD] [-s SEARCH]
         optional arguments:
             -h, --help show this help message and exit
             -r RULE, --rule RULE  файл с правилами парсинга новостей
@@ -44,6 +45,7 @@ rss = false
             -U USER, --user USER  пользователь БД. default postgres
             -P PASSWORD, --password PASSWORD пароль пользователя БД. default postgres
             -s SEARCH, --search SEARCH поиск новости по заголовку
+    ```
 
 ### Поиск новости по БД
 
